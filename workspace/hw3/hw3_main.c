@@ -741,6 +741,9 @@ int16_t ReadDAN777ADC(uint16_t *Rvalue1,uint16_t *Rvalue2) {
 
 int16_t WriteBQ32000(uint16_t second,uint16_t minute,uint16_t hour,uint16_t day,uint16_t date,uint16_t
                      month,uint16_t year){
+
+    int16_t I2C_Xready = 0;
+
     uint16_t cmd_second = ((second/10) << 4) + (second % 10); //in BCD, get tens digit, bit shift it 4, then add it to the ones digit
     uint16_t cmd_minute = ((minute/10) << 4) + (minute % 10);
     uint16_t cmd_hour = ((hour/10) << 4) + (hour % 10);
@@ -750,7 +753,7 @@ int16_t WriteBQ32000(uint16_t second,uint16_t minute,uint16_t hour,uint16_t day,
     uint16_t cmd_year = ((year/10) << 4) + (year % 10);
 
 
-    int16_t I2C_Xready = 0;
+
 //    Cmd1LSB = Cmd16bit_1 & 0xFF; //Bottom 8 bits of command
 //    Cmd1MSB = (Cmd16bit_1 >> 8) & 0xFF; //Top 8 bits of command
 //    Cmd2LSB = Cmd16bit_2 & 0xFF; //Bottom 8 bits of command
@@ -775,7 +778,7 @@ int16_t WriteBQ32000(uint16_t second,uint16_t minute,uint16_t hour,uint16_t day,
         return 4;
     }
     I2cbRegs.I2CDXR.all = cmd_second; // Write second
-    //serial_printf(&SerialA,"cmd_second: %d \r\n", cmd_second); //debug
+    serial_printf(&SerialA,"cmd_second: %d \r\n", cmd_second); //debug
     if (I2cbRegs.I2CSTR.bit.NACK == 1) { // Check for No Acknowledgement
         return 3; // This should not happen
     }
@@ -837,6 +840,9 @@ int16_t WriteBQ32000(uint16_t second,uint16_t minute,uint16_t hour,uint16_t day,
 
 int16_t ReadBQ32000(uint16_t *second,uint16_t *minute,uint16_t *hour,uint16_t *day,uint16_t *date,uint16_t
                     *month,uint16_t *year){ //parameters are local variables. when called
+    int16_t I2C_Xready = 0;
+    int16_t I2C_Rready = 0;
+
     uint16_t raw_sec = 0;
     uint16_t raw_min = 0;
     uint16_t raw_hour = 0;
@@ -844,8 +850,7 @@ int16_t ReadBQ32000(uint16_t *second,uint16_t *minute,uint16_t *hour,uint16_t *d
     uint16_t raw_date = 0;
     uint16_t raw_month = 0;
     uint16_t raw_year = 0;
-    int16_t I2C_Xready = 0;
-    int16_t I2C_Rready = 0;
+
     // Allow time for I2C to finish up previous commands.
     DELAY_US(200);
     if (I2cbRegs.I2CSTR.bit.BB == 1) { // Check if I2C busy. If it is, it's better
@@ -933,31 +938,34 @@ int16_t ReadBQ32000(uint16_t *second,uint16_t *minute,uint16_t *hour,uint16_t *d
     //*Rvalue1 = (Val1MSB << 8) | (Val1LSB & 0xFF);
     //*Rvalue2 = (Val2MSB << 8) | (Val2LSB & 0xFF);
 
-    int16_t ones = raw_sec && 0xF; //HW3 ones for seconds TTN
-    int16_t tens = (raw_sec && 0x70) >> 4; //HW3 tens for seconds, 6th, 5th, and 4th bit. bit shifting right four.
+    int16_t ones = raw_sec & 0xF; //HW3 ones for seconds TTN
+    int16_t tens = (raw_sec & 0x70) >> 4; //HW3 tens for seconds, 6th, 5th, and 4th bit. bit shifting right four.
+
+    //int16_t yuh = 10*tens+ones;
+    //serial_printf(&SerialA,"second: %d \r\n",yuh);
     *second = 10*tens + ones;
 
-    int16_t min_ones = raw_min && 0xF;
-    int16_t min_tens = (raw_min && 0x70) >> 4;
+    int16_t min_ones = raw_min & 0xF;
+    int16_t min_tens = (raw_min & 0x70) >> 4;
     *minute = 10*min_tens + min_ones;
 
-    int16_t hourone = raw_hour && 0xF;
-    int16_t hourten = (raw_hour && 0x30) >> 4; //HW3 bits 5 and 4
+    int16_t hourone = raw_hour & 0xF;
+    int16_t hourten = (raw_hour & 0x30) >> 4; //HW3 bits 5 and 4
     *hour = 10*hourten + hourone;
 
-    *day = raw_day && 0x7; //bits 0,1,2//up to 7, 1 is sunday, 7 is saturday
+    *day = raw_day & 0x7; //bits 0,1,2//up to 7, 1 is sunday, 7 is saturday
 
-    int16_t dateone = raw_date && 0xF;
-    int16_t dateten = (raw_hour && 0x30) >> 4; //HW3 bits 5 and 4
+    int16_t dateone = raw_date & 0xF;
+    int16_t dateten = (raw_hour & 0x30) >> 4; //HW3 bits 5 and 4
     *date = 10*dateten + dateone;
 
 
-    int16_t monthone = raw_month && 0xF;
-    int16_t monthten = (raw_month && 0x10) >> 4; //HW3 bit 4
+    int16_t monthone = raw_month & 0xF;
+    int16_t monthten = (raw_month & 0x10) >> 4; //HW3 bit 4
     *month = 10*monthten + monthone;
 
-    int16_t yearone = raw_year && 0xF; //HW3 ones for seconds TTN
-    int16_t yearten = (raw_year && 0xF0) >> 4; //HW3 tens for seconds, 7th,6th, 5th, and 4th bit. bit shifting right four.
+    int16_t yearone = raw_year & 0xF; //HW3 ones for seconds TTN
+    int16_t yearten = (raw_year & 0xF0) >> 4; //HW3 tens for seconds, 7th,6th, 5th, and 4th bit. bit shifting right four.
     *year = yearten*10 + yearone;
     return 0;
 
