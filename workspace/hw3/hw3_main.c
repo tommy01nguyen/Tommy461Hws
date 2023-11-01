@@ -4,6 +4,7 @@
 // TITLE:  Lab Starter
 //LEFT OFF: first checkoff code was working. New checkoff code broke after I changed the read variable from second to secondval for all of them. Shouldn't have effected old code at all? error 4 is coming out and I'm not sure what it is really from.
 //          was originally printing Sunday 1/1/1 1:1:1.all values were one.
+//everything is just 1... why.
 //#############################################################################
 
 // Included Files
@@ -47,8 +48,8 @@ int16_t WriteDAN777RCServo(uint16_t RC1, uint16_t RC2);
 int16_t ReadDAN777ADC(uint16_t *ADC1, uint16_t *ADC2);
 int16_t WriteBQ32000(uint16_t second,uint16_t minute,uint16_t hour,uint16_t day,uint16_t date,uint16_t
                      month,uint16_t year);
-int16_t ReadBQ32000(uint16_t *secondval,uint16_t *minuteval,uint16_t *hourval,uint16_t *dayval,uint16_t *dateval,uint16_t
-                    *monthval,uint16_t *yearval);
+int16_t ReadBQ32000(uint16_t *second,uint16_t *minute,uint16_t *hour,uint16_t *day,uint16_t *date,uint16_t
+                    *month,uint16_t *year);
 int16_t I2C_CheckIfTX(uint16_t timeout);
 int16_t I2C_CheckIfRX(uint16_t timeout);
 uint16_t RunI2C = 0; // Flag variable to indicate when to run I2C commands
@@ -61,13 +62,13 @@ uint16_t servo1cmd = 0;//TTN HW3 write to servo values
 uint16_t servo2cmd = 0;//TTN HW3
 uint16_t adcval1 = 0;
 uint16_t adcval2 = 0;
-uint8_t secondval = 0;
-uint8_t minuteval = 0;
-uint8_t hourval = 0;
-uint8_t dayval = 0;
-uint8_t dateval = 0;
-uint8_t monthval = 0;
-uint8_t yearval = 0;
+uint16_t secondval = 0;
+uint16_t minuteval = 0;
+uint16_t hourval = 0;
+uint16_t dayval = 0;
+uint16_t dateval = 0;
+uint16_t monthval = 0;
+uint16_t yearval = 0;
 float motorAngle = 0.0; //create motor angle
 uint16_t upCountingMotorAngle = 0; // create motor angle cycle counter
 
@@ -314,7 +315,8 @@ void main(void)
 
     I2CB_Init(); //TTN
 
-    WriteBQ32000(21,43,7,4,21,5,23); //sec, min, hour, day, date, month, year//TTN write to BQ32000
+    WriteBQ32000(21,43,11,4,21,5,23); //sec, min, hour, day, date, month, year//TTN write to BQ32000
+    //WriteBQ32000(0,0,0,0,0,0,0);
     // IDLE loop. Just sit and loop forever (optional):
     while(1)
     {
@@ -350,7 +352,7 @@ void main(void)
                 serial_printf(&SerialA,"Saturday %d/%d/%d %d:%d:%d. \r\n", monthval,dateval,yearval,hourval,minuteval,secondval);
             }
 
-            serial_printf(&SerialA,"Saturday %d/%d/%d %d:%d:%d. \r\n", monthval,dateval,yearval,hourval,minuteval,secondval); //debug
+            //serial_printf(&SerialA,"Saturday %d/%d/%d %d:%d:%d. \r\n", monthval,dateval,yearval,hourval,minuteval,secondval); //debug
             UARTPrint = 0;
         }
         if (RunI2C == 1) {
@@ -739,13 +741,14 @@ int16_t ReadDAN777ADC(uint16_t *Rvalue1,uint16_t *Rvalue2) {
 
 int16_t WriteBQ32000(uint16_t second,uint16_t minute,uint16_t hour,uint16_t day,uint16_t date,uint16_t
                      month,uint16_t year){
-    uint8_t cmd_second = (second/10 << 4) + second % 10; //in BCD, get tens digit, bit shift it 4, then add it to the ones digit
-    uint8_t cmd_minute = (minute/10 << 4) + minute % 10;
-    uint8_t cmd_hour = (hour/10 << 4) + hour % 10;
-    uint8_t cmd_day = day; //1 is sunday, 7 is saturday
-    uint8_t cmd_date = (date/10 << 4) + date % 10;
-    uint8_t cmd_month = (month/10 << 4) + month % 10;
-    uint8_t cmd_year = (year/10 << 4) + year % 10;
+    uint16_t cmd_second = ((second/10) << 4) + (second % 10); //in BCD, get tens digit, bit shift it 4, then add it to the ones digit
+    uint16_t cmd_minute = ((minute/10) << 4) + (minute % 10);
+    uint16_t cmd_hour = ((hour/10) << 4) + (hour % 10);
+    uint16_t cmd_day = day; //1 is sunday, 7 is saturday
+    uint16_t cmd_date = ((date/10) << 4) + (date % 10);
+    uint16_t cmd_month = ((month/10) << 4) + (month % 10);
+    uint16_t cmd_year = ((year/10) << 4) + (year % 10);
+
 
     int16_t I2C_Xready = 0;
 //    Cmd1LSB = Cmd16bit_1 & 0xFF; //Bottom 8 bits of command
@@ -765,13 +768,14 @@ int16_t WriteBQ32000(uint16_t second,uint16_t minute,uint16_t hour,uint16_t day,
     }
     I2cbRegs.I2CSAR.all = 0x68; // Set I2C address to that of ChipXYZ's //TTN changed to slave address of BQ32000, 0x68
     I2cbRegs.I2CCNT = 8; // Number of values to send plus start register: 7 + 1 //TTN HW3
-    I2cbRegs.I2CDXR.all = 4; // First need to transfer the register value to start writing data
+    I2cbRegs.I2CDXR.all = 0; // First need to transfer the register value to start writing data //read from seconds which is register 0
     I2cbRegs.I2CMDR.all = 0x6E20; // I2C in master mode (MST), I2C is in transmit mode (TRX) with start and stop
     I2C_Xready = I2C_CheckIfTX(39062); // Poll until I2C ready to transmit
     if (I2C_Xready == -1) {
         return 4;
     }
     I2cbRegs.I2CDXR.all = cmd_second; // Write second
+    //serial_printf(&SerialA,"cmd_second: %d \r\n", cmd_second); //debug
     if (I2cbRegs.I2CSTR.bit.NACK == 1) { // Check for No Acknowledgement
         return 3; // This should not happen
     }
@@ -831,15 +835,15 @@ int16_t WriteBQ32000(uint16_t second,uint16_t minute,uint16_t hour,uint16_t day,
 
 }
 
-int16_t ReadBQ32000(uint16_t *secondval,uint16_t *minuteval,uint16_t *hourval,uint16_t *dayval,uint16_t *dateval,uint16_t
-                    *monthval,uint16_t *yearval){
-    uint8_t raw_sec = 0;
-    uint8_t raw_min = 0;
-    uint8_t raw_hour = 0;
-    uint8_t raw_day = 0;
-    uint8_t raw_date = 0;
-    uint8_t raw_month = 0;
-    uint8_t raw_year = 0;
+int16_t ReadBQ32000(uint16_t *second,uint16_t *minute,uint16_t *hour,uint16_t *day,uint16_t *date,uint16_t
+                    *month,uint16_t *year){ //parameters are local variables. when called
+    uint16_t raw_sec = 0;
+    uint16_t raw_min = 0;
+    uint16_t raw_hour = 0;
+    uint16_t raw_day = 0;
+    uint16_t raw_date = 0;
+    uint16_t raw_month = 0;
+    uint16_t raw_year = 0;
     int16_t I2C_Xready = 0;
     int16_t I2C_Rready = 0;
     // Allow time for I2C to finish up previous commands.
@@ -931,31 +935,30 @@ int16_t ReadBQ32000(uint16_t *secondval,uint16_t *minuteval,uint16_t *hourval,ui
 
     int16_t ones = raw_sec && 0xF; //HW3 ones for seconds TTN
     int16_t tens = (raw_sec && 0x70) >> 4; //HW3 tens for seconds, 6th, 5th, and 4th bit. bit shifting right four.
-    *secondval = 10*tens + ones;
+    *second = 10*tens + ones;
 
     int16_t min_ones = raw_min && 0xF;
     int16_t min_tens = (raw_min && 0x70) >> 4;
-    *minuteval = 10*min_tens + min_ones;
+    *minute = 10*min_tens + min_ones;
 
     int16_t hourone = raw_hour && 0xF;
     int16_t hourten = (raw_hour && 0x30) >> 4; //HW3 bits 5 and 4
-    *hourval = 10*hourten + hourone;
+    *hour = 10*hourten + hourone;
 
-    *dayval = raw_day && 0x7; //bits 0,1,2//up to 7, 1 is sunday, 7 is saturday
+    *day = raw_day && 0x7; //bits 0,1,2//up to 7, 1 is sunday, 7 is saturday
 
     int16_t dateone = raw_date && 0xF;
     int16_t dateten = (raw_hour && 0x30) >> 4; //HW3 bits 5 and 4
-    *dateval = 10*dateten + dateone;
+    *date = 10*dateten + dateone;
 
 
     int16_t monthone = raw_month && 0xF;
     int16_t monthten = (raw_month && 0x10) >> 4; //HW3 bit 4
-    *monthval = 10*monthten + monthone;
+    *month = 10*monthten + monthone;
 
     int16_t yearone = raw_year && 0xF; //HW3 ones for seconds TTN
     int16_t yearten = (raw_year && 0xF0) >> 4; //HW3 tens for seconds, 7th,6th, 5th, and 4th bit. bit shifting right four.
-    *yearval = yearten*10 + yearone;
-
+    *year = yearten*10 + yearone;
     return 0;
 
 }
